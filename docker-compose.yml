@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: memo-app-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=memo-app-db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - memo-app-net
+
+  app:
+    build: .
+    container_name: memo-app
+    depends_on:
+      - db
+    ports:
+      - "8081:8081"
+    environment:
+      - APP_PORT=8081
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=memo-app-db
+      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      - OAUTH_REDIRECT_URL=${OAUTH_REDIRECT_URL}
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - memo-app-net
+
+networks:
+  memo-app-net:
+    driver: bridge
