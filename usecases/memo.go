@@ -3,8 +3,10 @@ package usecases
 import (
 	"errors"
 
-	"github.com/Abiti0233/memo-app/domains"
+	"github.com/Abiti0233/memo-app/domains/memo"
 	"github.com/Abiti0233/memo-app/infrastructures"
+	"github.com/Abiti0233/memo-app/infrastructures/infracategory"
+	"github.com/Abiti0233/memo-app/infrastructures/inframemo"
 )
 
 var (
@@ -12,31 +14,31 @@ var (
 )
 
 type MemoUseCase interface {
-	CreateMemo(userID string, memo *domains.Memo) error
-	UpdateMemo(userID string, memo *domains.Memo) error
+	CreateMemo(userID string, memo *memo.Memo) error
+	UpdateMemo(userID string, memo *memo.Memo) error
 	DeleteMemo(userID, id string) error
-	GetMemoByID(userID, id string) (*domains.Memo, error)
-	ListMemos(userID string) ([]domains.Memo, error)
+	GetMemoByID(userID, id string) (*memo.Memo, error)
+	ListMemos(userID string) ([]memo.Memo, error)
 	ArchiveMemo(userID, id string, isArchived bool) error
 	AssignCategory(userID, memoID, categoryID string) error
 	RemoveCategory(userID, memoID, categoryID string) error
 }
 
 type memoUseCase struct {
-	memoRepo infrastructures.MemoRepository
-	categoryRepo infrastructures.CategoryRepository
+	memoRepo     inframemo.MemoRepository
+	categoryRepo infracategory.CategoryRepository
 }
 
-func NewMemoUseCase(memoRepo infrastructures.MemoRepository, categoryRepo infrastructures.CategoryRepository) MemoUseCase {
+func NewMemoUseCase(memoRepo inframemo.MemoRepository, categoryRepo infracategory.CategoryRepository) MemoUseCase {
 	return &memoUseCase{memoRepo: memoRepo, categoryRepo: categoryRepo}
 }
 
-func (u *memoUseCase) CreateMemo(userID string, memo *domains.Memo) error {
+func (u *memoUseCase) CreateMemo(userID string, memo *memo.Memo) error {
 	memo.UserID = userID
 	return u.memoRepo.Create(memo)
 }
 
-func (u *memoUseCase) UpdateMemo(userID string, memo *domains.Memo) error {
+func (u *memoUseCase) UpdateMemo(userID string, memo *memo.Memo) error {
 	memo.UserID = userID
 	// メモの更新処理をUpdateメソッドを呼び出して行う。
 	// 成功時はnilが返ってくる。
@@ -55,7 +57,7 @@ func (u *memoUseCase) DeleteMemo(userID, id string) error {
 	return err
 }
 
-func (u *memoUseCase) GetMemoByID(userID, id string) (*domains.Memo, error) {
+func (u *memoUseCase) GetMemoByID(userID, id string) (*memo.Memo, error) {
 	memo, err := u.memoRepo.GetByID(id)
 	if err != nil {
 		return nil, err
@@ -67,7 +69,7 @@ func (u *memoUseCase) GetMemoByID(userID, id string) (*domains.Memo, error) {
 	return memo, nil
 }
 
-func (u *memoUseCase) ListMemos(userID string) ([]domains.Memo, error) {
+func (u *memoUseCase) ListMemos(userID string) ([]memo.Memo, error) {
 	return u.memoRepo.ListByUser(userID)
 }
 
@@ -79,7 +81,7 @@ func (u *memoUseCase) ArchiveMemo(userID, id string, isArchived bool) error {
 	if memo == nil || memo.UserID != userID {
 		return ErrMemoNotFound
 	}
-	return &u.memoRepo.Archive(id, isArchived)
+	return u.memoRepo.Archive(id, isArchived)
 }
 
 func (u *memoUseCase) AssignCategory(userID, memoID, categoryID string) error {

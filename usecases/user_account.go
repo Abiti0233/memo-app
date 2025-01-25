@@ -4,32 +4,32 @@ package usecases
 import (
 	"errors"
 
-	"github.com/Abiti0233/memo-app/domains"
-	"github.com/Abiti0233/memo-app/infrastructures"
+	"github.com/Abiti0233/memo-app/domains/user"
+	"github.com/Abiti0233/memo-app/infrastructures/infrauser"
 )
 
 var (
-	ErrUserNotFound = errors.New("ユーザーが見つかりません。")
+	ErrUserNotFound      = errors.New("ユーザーが見つかりません。")
 	ErrUserAlreadyExists = errors.New("ユーザーは既に存在します。")
 )
 
 type UserUseCase interface {
-	RegisterUser(user *domains.User) error
-	GetUserByID(id string) (*domains.User, error)
-	GetUserByEmail(email string) (*domains.User, error)
+	RegisterUser(user *user.User) error
+	GetUserByID(id string) (*user.User, error)
+	GetUserByEmail(email string) (*user.User, error)
 }
 
 type userUseCase struct {
-	userRepo infrastructures.UserRepository
+	userRepo infrauser.UserRepository
 }
 
-func NewUserUseCase(userRepo infrastructures.UserRepository) UserUseCase {
+func NewUserUseCase(userRepo infrauser.UserRepository) UserUseCase {
 	return &userUseCase{userRepo: userRepo}
 }
 
-func (u *userUseCase) RegisterUser(user *domains.User) error {
+func (u *userUseCase) RegisterUser(user *user.User) error {
 	// メールアドレスが既に登録されているかを確認する。
-	existingUser, err := u.userRepo.GetUserByEmail(user.Email)
+	existingUser, err := u.userRepo.GetByEmail(user.Email)
 	if err != nil {
 		return err
 	}
@@ -38,10 +38,10 @@ func (u *userUseCase) RegisterUser(user *domains.User) error {
 	}
 
 	// 登録されていなかったら、ユーザーを登録する。
-	return u.userRepo.CreateUser(user)
+	return u.userRepo.Create(user)
 }
 
-func (u *userUseCase) GetUserByID (id string) (*domains.User, error) {
+func (u *userUseCase) GetUserByID(id string) (*user.User, error) {
 	user, err := u.userRepo.GetByID(id)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (u *userUseCase) GetUserByID (id string) (*domains.User, error) {
 	return user, nil
 }
 
-func (u *userUseCase) GetUserByEmail(email string) (*domains.User, error) {
+func (u *userUseCase) GetUserByEmail(email string) (*user.User, error) {
 	user, err := u.userRepo.GetByEmail(email)
 	if err != nil {
 		return nil, err

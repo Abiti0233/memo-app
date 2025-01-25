@@ -1,6 +1,6 @@
-package domains
+package memocategory
 
 type MemoCategory struct {
-	MemoID string `json:"memoId"`
+	MemoID     string `json:"memoId"`
 	CategoryID string `json:"categoryId"`
 }

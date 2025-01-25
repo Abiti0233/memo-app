@@ -4,16 +4,14 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/Abiti0233/memo-app/domains/user"
 	"github.com/google/uuid"
-	"github.com/Abiti0233/memo-app/domains"
 )
 
-var ErrNoRows = errors.New("no rows in result set")
-
 type UserRepository interface {
-	Create(user *domains.User) error
-	GetByID(id string) (*domains.User, error)
-	GetByEmail(email string) (*domains.User, error)
+	Create(user *user.User) error
+	GetByID(id string) (*user.User, error)
+	GetByEmail(email string) (*user.User, error)
 }
 
 type userRepository struct {
@@ -24,7 +22,7 @@ func NewUserRepository(db *sql.DB) UserRepository {
 	return &userRepository{db: db}
 }
 
-func (r *userRepository) Create(user *domains.User) error {
+func (r *userRepository) Create(user *user.User) error {
 	user.ID = uuid.New().String()
 	query := `INSERT INTO Users (id, name, email, emailLowerCase, createdAt, updatedAt)
 						VALUES ($1, $2, $3, LOWER($3), NOW(), NOW())`
@@ -32,12 +30,12 @@ func (r *userRepository) Create(user *domains.User) error {
 	return err
 }
 
-func (r *userRepository) GetByID(id string) (*domains.User, error) {
+func (r *userRepository) GetByID(id string) (*user.User, error) {
 	query := `SELECT id, name, email, emailLowerCase, emailVerified, createdAt, updatedAt
 						FROM Users WHERE id = $1`
 	row := r.db.QueryRow(query, id)
 
-	var user domains.User
+	var user user.User
 	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.EmailLowerCase, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -48,12 +46,12 @@ func (r *userRepository) GetByID(id string) (*domains.User, error) {
 	return &user, nil
 }
 
-func (r *userRepository) GetByEmail(email string) (*domains.User, error) {
+func (r *userRepository) GetByEmail(email string) (*user.User, error) {
 	query := `SELECT id, name, email, emailLowerCase, emailVerified, createdAt, updatedAt
 						FROM Users WHERE emailLowerCase = LOWER($1)`
 	row := r.db.QueryRow(query, email)
 
-	var user domains.User
+	var user user.User
 	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.EmailLowerCase, &user.EmailVerified, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

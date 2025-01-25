@@ -3,21 +3,18 @@ package infrabookmark
 import (
 	"database/sql"
 	"errors"
-	"os/user"
 
-	"github.com/Abiti0233/memo-app/domains"
-	domains "github.com/Abiti0233/memo-app/domains/bookmark"
+	"github.com/Abiti0233/memo-app/domains/bookmark"
+	"github.com/Abiti0233/memo-app/infrastructures"
 	"github.com/google/uuid"
 )
 
-var ErrNoRows = errors.New("no rows in result set")
-
 type BookmarkRepository interface {
-	Create(bookmark *domains.Bookmark) error
+	Create(bookmark *bookmark.Bookmark) error
 	Delete(id string) error
-	GetByID(id string) (*domains.Bookmark, error)
-	ListByUser(userID string) ([]domains.Bookmark, error)
-	GetByUserAndMemo(userID, memoID string) (*domains.Bookmark, error)
+	GetByID(id string) (*bookmark.Bookmark, error)
+	ListByUser(userID string) ([]bookmark.Bookmark, error)
+	GetByUserAndMemo(userID, memoID string) (*bookmark.Bookmark, error)
 }
 
 type bookmarkRepository struct {
@@ -29,8 +26,8 @@ func NewBookmarkRepository(db *sql.DB) BookmarkRepository {
 	return &bookmarkRepository{db: db}
 }
 
-func (r *bookmarkRepository) Create(bookmark *domains.Bookmark) error {
-	bookmark.ID  = uuid.New().String()
+func (r *bookmarkRepository) Create(bookmark *bookmark.Bookmark) error {
+	bookmark.ID = uuid.New().String()
 	query := `INSERT INTO Bookmarks (id, userId, memoId, createdAt)
 						VALUES ($1, $2, $3, NOW())`
 	_, err := r.db.Exec(query, bookmark.ID, bookmark.UserID, bookmark.MemoID)
@@ -41,30 +38,30 @@ func (r *bookmarkRepository) Delete(id string) error {
 	query := `DELETE FROM Bookmarks WHERE id = $1`
 	res, err := r.db.Exec(query, id)
 	if err != nil {
-			return err
+		return err
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-			return err
+		return err
 	}
 	if rowsAffected == 0 {
-			return ErrNoRows
+		return infrastructures.ErrNoRows
 	}
 	return nil
 }
 
-func (r *bookmarkRepository) GetByID(id string) (*domains.Bookmark, error) {
+func (r *bookmarkRepository) GetByID(id string) (*bookmark.Bookmark, error) {
 	query := `SELECT id, userId, memoId, createdAt
 						FROM Bookmarks WHERE id = $1`
 	row := r.db.QueryRow(query, id)
 
-	var bookmark domains.Bookmark
+	var bookmark bookmark.Bookmark
 	err := row.Scan(&bookmark.ID, &bookmark.UserID, &bookmark.MemoID, &bookmark.CreatedAt)
 	if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-					return nil, nil
-			}
-			return nil, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
 	}
 
 	// Bookmark構造体のポインタ（アドレス？）を返す。
@@ -72,7 +69,7 @@ func (r *bookmarkRepository) GetByID(id string) (*domains.Bookmark, error) {
 	return &bookmark, nil
 }
 
-func (r *bookmarkRepository) ListByUser(userID string) ([]domains.Bookmark, error) {
+func (r *bookmarkRepository) ListByUser(userID string) ([]bookmark.Bookmark, error) {
 	// ブックマークは更新される＝データから消えるため作成日時の降順でも最新状態を表せるため、
 	// 作成日時の降順で取得するクエリを実行する。
 	query := `SELECT id, userId, memoId, createdAt FROM Bookmarks WHERE userId = $1 ORDER BY createdAt DESC`
@@ -82,9 +79,9 @@ func (r *bookmarkRepository) ListByUser(userID string) ([]domains.Bookmark, erro
 	}
 	defer rows.Close()
 
-	var bookmarks []domains.Bookmark
+	var bookmarks []bookmark.Bookmark
 	for rows.Next() {
-		var bookmark domains.Bookmark
+		var bookmark bookmark.Bookmark
 		err := rows.Scan(&bookmark.ID, &bookmark.UserID, &bookmark.MemoID, &bookmark.CreatedAt)
 		if err != nil {
 			return nil, err
@@ -94,11 +91,11 @@ func (r *bookmarkRepository) ListByUser(userID string) ([]domains.Bookmark, erro
 	return bookmarks, nil
 }
 
-func (r *bookmarkRepository) GetByUserAndMemo(userID, memoID string) (*domains.Bookmark, error) {
+func (r *bookmarkRepository) GetByUserAndMemo(userID, memoID string) (*bookmark.Bookmark, error) {
 	query := `SELECT id, userId, memoId, createdAt FROM Bookmarks WHERE userId = $1 AND memoId = $2`
 	row := r.db.QueryRow(query, userID, memoID)
 
-	var bookmark domains.Bookmark
+	var bookmark bookmark.Bookmark
 	err := row.Scan(&bookmark.ID, &bookmark.UserID, &bookmark.MemoID, &bookmark.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -108,4 +105,3 @@ func (r *bookmarkRepository) GetByUserAndMemo(userID, memoID string) (*domains.B
 	}
 	return &bookmark, nil
 }
-

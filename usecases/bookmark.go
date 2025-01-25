@@ -3,31 +3,31 @@ package usecases
 import (
 	"errors"
 
-	"github.com/Abiti0233/memo-app/domains"
-	"github.com/Abiti0233/memo-app/infrastructures"
+	"github.com/Abiti0233/memo-app/domains/bookmark"
+	"github.com/Abiti0233/memo-app/infrastructures/infrabookmark"
 )
 
 var (
-	ErrBookmarkNotFound = errors.New("ブックマークが見つかりません。")
+	ErrBookmarkNotFound      = errors.New("ブックマークが見つかりません。")
 	ErrBookmarkAlreadyExists = errors.New("ブックマークは既に存在します。")
 )
 
 type BookmarkUseCase interface {
-	CreateBookmark(userID string, memoID string) (*domains.Bookmark, error)
+	CreateBookmark(userID string, memoID string) (*bookmark.Bookmark, error)
 	DeleteBookmark(userID, id string) error
-	GetBookmarkByID(userID, id string) (*domains.Bookmark, error)
-	ListBookmarks(userID string) ([]domains.Bookmark, error)
+	GetBookmarkByID(userID, id string) (*bookmark.Bookmark, error)
+	ListBookmarks(userID string) ([]bookmark.Bookmark, error)
 }
 
 type bookmarkUseCase struct {
-	bookmarkRepo infrastructures.BookmarkRepository
+	bookmarkRepo infrabookmark.BookmarkRepository
 }
 
-func NewBookmarkUseCase(bookmarkRepo infrastructures.BookmarkRepository) BookmarkUseCase {
+func NewBookmarkUseCase(bookmarkRepo infrabookmark.BookmarkRepository) BookmarkUseCase {
 	return &bookmarkUseCase{bookmarkRepo: bookmarkRepo}
 }
 
-func (u *bookmarkUseCase) CreateBookmark(userID string, memoID string) (*domains.Bookmark, error) {
+func (u *bookmarkUseCase) CreateBookmark(userID string, memoID string) (*bookmark.Bookmark, error) {
 	// ブックマークが既に存在するかを確認する。
 	existing, err := u.bookmarkRepo.GetByUserAndMemo(userID, memoID)
 	if err != nil {
@@ -38,7 +38,7 @@ func (u *bookmarkUseCase) CreateBookmark(userID string, memoID string) (*domains
 	}
 
 	// ブックマークが存在しなかったら、ブックマークを作成する。
-	bookmark := &domains.Bookmark{
+	bookmark := &bookmark.Bookmark{
 		UserID: userID,
 		MemoID: memoID,
 	}
@@ -63,7 +63,7 @@ func (u *bookmarkUseCase) DeleteBookmark(userID, id string) error {
 	return u.bookmarkRepo.Delete(id)
 }
 
-func (u *bookmarkUseCase) GetBookmarkByID(userID, id string) (*domains.Bookmark, error) {
+func (u *bookmarkUseCase) GetBookmarkByID(userID, id string) (*bookmark.Bookmark, error) {
 	bookmark, err := u.bookmarkRepo.GetByID(id)
 	if err != nil {
 		return nil, err
@@ -74,6 +74,6 @@ func (u *bookmarkUseCase) GetBookmarkByID(userID, id string) (*domains.Bookmark,
 	return bookmark, nil
 }
 
-func (u *bookmarkUseCase) ListBookmarks(userID string) ([]domains.Bookmark, error) {
+func (u *bookmarkUseCase) ListBookmarks(userID string) ([]bookmark.Bookmark, error) {
 	return u.bookmarkRepo.ListByUser(userID)
 }
