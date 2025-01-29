@@ -3,6 +3,7 @@ package usecases
 
 import (
 	"errors"
+	"log"
 
 	"github.com/Abiti0233/memo-app/domains/user"
 	"github.com/Abiti0233/memo-app/infrastructures/infrauser"
@@ -44,9 +45,11 @@ func (u *userUseCase) RegisterUser(user *user.User) error {
 func (u *userUseCase) GetUserByID(id string) (*user.User, error) {
 	user, err := u.userRepo.GetByID(id)
 	if err != nil {
+		log.Printf("userRepo.GetByID()がエラーを返しました: %v\n", err)
 		return nil, err
 	}
 	if user == nil {
+		log.Printf("userがnilです: %v\n", user)
 		return nil, ErrUserNotFound
 	}
 	return user, nil

@@ -1,11 +1,13 @@
-// interfaces/httphandlers/auth_handler.go
 package httphandlers
 
 import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"time"
+	"log"
+	"errors"
 
 	userdomain "github.com/Abiti0233/memo-app/domains/user"
 	"github.com/Abiti0233/memo-app/usecases"
@@ -18,13 +20,15 @@ type AuthHandler struct {
 	userUseCase usecases.UserUseCase
 	oauthConfig *oauth2.Config
 	jwtSecret   string
+  frontendURL string
 }
 
-func NewAuthHandler(userUseCase usecases.UserUseCase, oauthConfig *oauth2.Config, jwtSecret string) *AuthHandler {
+func NewAuthHandler(userUseCase usecases.UserUseCase, oauthConfig *oauth2.Config, jwtSecret string, frontendURL string) *AuthHandler {
 	return &AuthHandler{
 		userUseCase: userUseCase,
 		oauthConfig: oauthConfig,
 		jwtSecret:   jwtSecret,
+    frontendURL : frontendURL,
 	}
 }
 
@@ -76,26 +80,33 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	// ユーザーをデータベースに登録または取得
 	user, err := h.userUseCase.GetUserByID(userInfo.ID)
+	log.Printf("ユーザー: %v\n", user)
 	if err != nil {
-		http.Error(w, "ユーザーの取得に失敗しました。", http.StatusInternalServerError)
-		return
-	}
-	if user == nil {
-		// 新規ユーザーとして登録
-		newUser := &userdomain.User{
-			ID:            userInfo.ID,
-			Name:          userInfo.Name,
-			Email:         userInfo.Email,
-			EmailVerified: nil,
-			CreatedAt:     timeNow(),
-			UpdatedAt:     timeNow(),
+		if errors.Is(err, usecases.ErrUserNotFound) {
+				log.Println("ユーザーが存在しません。新規登録を試みます。")
+				// 新規ユーザーとして登録
+				newUser := &userdomain.User{
+						ID:            userInfo.ID,
+						Name:          userInfo.Name,
+						Email:         userInfo.Email,
+						EmailVerified: userInfo.VerifiedEmail,
+						CreatedAt:     timeNow(),
+						UpdatedAt:     timeNow(),
+				}
+				log.Printf("新規ユーザー: %v\n", newUser)
+				if err := h.userUseCase.RegisterUser(newUser); err != nil {
+						http.Error(w, "ユーザーの登録に失敗しました。", http.StatusInternalServerError)
+						log.Printf("ユーザーの登録に失敗しました: %v\n", err)
+						return
+				}
+				user = newUser
+				log.Printf("新規ユーザーを登録しました: %+v\n", user)
+		} else {
+				http.Error(w, "ユーザーの取得に失敗しました。", http.StatusInternalServerError)
+				log.Printf("ユーザー情報の取得に失敗しました2: %v\n", err)
+				return
 		}
-		if err := h.userUseCase.RegisterUser(newUser); err != nil {
-			http.Error(w, "ユーザーの登録に失敗しました。", http.StatusInternalServerError)
-			return
-		}
-		user = newUser
-	}
+}
 	// JWTトークンの生成
 	tokenStr, err := utils.GenerateJWT(user.ID, h.jwtSecret)
 	if err != nil {
@@ -103,11 +114,20 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// トークンをJSONで返却
-	response := map[string]string{
-		"token": tokenStr,
+
+	// フロントエンドにリダイレクト
+	redirectURL, err := url.Parse(h.frontendURL + "/auth/callback")
+	if err != nil {
+		http.Error(w, "URLのパースに失敗しました。", http.StatusInternalServerError)
+		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+
+	// クエリパラメータとしてトークンを追加
+	query := redirectURL.Query()
+	query.Set("token", tokenStr)
+	redirectURL.RawQuery = query.Encode()
+
+	http.Redirect(w, r, redirectURL.String(), http.StatusSeeOther)
 }
 
 func timeNow() time.Time {

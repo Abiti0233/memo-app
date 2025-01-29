@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/Abiti0233/memo-app/domains/user"
-	"github.com/google/uuid"
 )
 
 type UserRepository interface {
@@ -23,10 +22,9 @@ func NewUserRepository(db *sql.DB) UserRepository {
 }
 
 func (r *userRepository) Create(user *user.User) error {
-	user.ID = uuid.New().String()
-	query := `INSERT INTO Users (id, name, email, emailLowerCase, createdAt, updatedAt)
-						VALUES ($1, $2, $3, LOWER($3), NOW(), NOW())`
-	_, err := r.db.Exec(query, user.ID, user.Name, user.Email)
+	query := `INSERT INTO Users (id, name, email, emailVerified, createdAt, updatedAt)
+						VALUES ($1, $2, $3, $4, NOW(), NOW())`
+	_, err := r.db.Exec(query, user.ID, user.Name, user.Email, user.EmailVerified)
 	return err
 }
 

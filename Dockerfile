@@ -1,26 +1,28 @@
-# Dockerfile
+# ベースイメージの指定
 FROM golang:1.23.4-alpine
 
-# 必要なパッケージをインストール
-RUN apk update && apk add --no-cache git
+# 必要なパッケージのインストール
+RUN apk update && apk add --no-cache git bash
 
-# 作業ディレクトリの設定
+# 作業ディレクトリの作成
 WORKDIR /app
 
-# モジュールファイルをコピー
-COPY go.mod go.sum ./
+# wait-for-it スクリプトのコピー
+COPY wait-for-it.sh /wait-for-it.sh
+RUN chmod +x /wait-for-it.sh
 
-# 依存関係をダウンロード
+# Goモジュールのキャッシュを利用するために依存ファイルを先にコピー
+COPY go.mod go.sum ./
 RUN go mod download
 
-# ソースコードをコピー
+# ソースコードのコピー
 COPY . .
 
-# ビルド
+# バイナリのビルド
 RUN go build -o main .
 
-# ポートを開放
+# ポートの指定
 EXPOSE 8081
 
-# 実行
-CMD ["./main"]
+# アプリケーションの実行（wait-for-it を使用して db:5432 が利用可能になるまで待機）
+CMD ["/wait-for-it.sh", "db:5432", "--", "./main"]

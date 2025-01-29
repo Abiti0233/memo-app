@@ -4,7 +4,7 @@ CREATE TABLE Users (
   name VARCHAR(255), -- ユーザー名
   email VARCHAR(512) NOT NULL UNIQUE, -- ログインに使用する Email アドレス
   emailLowerCase VARCHAR(512) GENERATED ALWAYS AS (LOWER(email)) STORED NOT NULL, -- 小文字化したログインに使用する Email アドレス
-  emailVerified TIMESTAMP, -- Email確認日時
+  emailVerified BOOLEAN, -- Email が確認済みかどうか
   createdAt TIMESTAMP NOT NULL DEFAULT NOW(), -- 作成日時
   updatedAt TIMESTAMP NOT NULL DEFAULT NOW() -- 更新日時
 );

@@ -9,7 +9,7 @@ type User struct {
 	Name           string     `json:"name"`
 	Email          string     `json:"email"`
 	EmailLowerCase string     `json:"-"`
-	EmailVerified  *time.Time `json:"emailVerified.omitempty"`
+	EmailVerified  bool `json:"emailVerified.omitempty"`
 	CreatedAt      time.Time  `json:"createdAt"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
 }

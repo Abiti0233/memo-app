@@ -14,6 +14,7 @@ import (
 	"github.com/Abiti0233/memo-app/interfaces/middlewares/authmiddleware"
 	"github.com/Abiti0233/memo-app/usecases"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/handlers"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -24,11 +25,14 @@ type App struct {
 	UserUseCase     usecases.UserUseCase
 	MemoUseCase     usecases.MemoUseCase
 	BookmarkUseCase usecases.BookmarkUseCase
+	FrontendURL     string
 }
 
 func (a *App) Initialize(db *sql.DB, config *configs.Config) {
 	a.DB = db
 	a.Router = mux.NewRouter()
+
+	a.FrontendURL = config.FrontendURL
 
 	// リポジトリの初期化
 	userRepo := infrauser.NewUserRepository(a.DB)
@@ -55,7 +59,7 @@ func (a *App) Initialize(db *sql.DB, config *configs.Config) {
 	}
 
 	// ハンドラーの初期化
-	authHandler := httphandlers.NewAuthHandler(a.UserUseCase, oauthConfig, config.JWTSecret)
+	authHandler := httphandlers.NewAuthHandler(a.UserUseCase, oauthConfig, config.JWTSecret, a.FrontendURL)
 	memoHandler := httphandlers.NewMemoHandler(a.MemoUseCase)
 	bookmarkHandler := httphandlers.NewBookmarkHandler(a.BookmarkUseCase)
 
@@ -85,6 +89,8 @@ func (a *App) initializeRoutes(authHandler *httphandlers.AuthHandler, memoHandle
 	authenticated.HandleFunc("/memos", memoHandler.ListMemos).Methods("GET")
 	authenticated.HandleFunc("/memos/{memoId}/archive", memoHandler.ArchiveMemo).Methods("PATCH")
 
+    // カテゴリ関連のルートも作る
+
 	// ブックマーク関連のルート
 	authenticated.HandleFunc("/bookmarks", bookmarkHandler.CreateBookmark).Methods("POST")
 	authenticated.HandleFunc("/bookmarks/{bookmarkId}", bookmarkHandler.DeleteBookmark).Methods("DELETE")
@@ -94,5 +100,12 @@ func (a *App) initializeRoutes(authHandler *httphandlers.AuthHandler, memoHandle
 
 func (a *App) Run(addr string) {
 	log.Printf("Server running on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, a.Router))
+
+	// CORS設定をRun内で適用
+	headersOk := handlers.AllowedHeaders([]string{"Authorization", "Content-Type"})
+	originsOk := handlers.AllowedOrigins([]string{a.FrontendURL})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
+
+	// CORSミドルウェアを適用してサーバーを起動
+	log.Fatal(http.ListenAndServe(addr, handlers.CORS(originsOk, headersOk, methodsOk)(a.Router)))
 }
