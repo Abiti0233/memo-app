@@ -13,8 +13,8 @@ import (
 	"github.com/Abiti0233/memo-app/interfaces/httphandlers"
 	"github.com/Abiti0233/memo-app/interfaces/middlewares/authmiddleware"
 	"github.com/Abiti0233/memo-app/usecases"
-	"github.com/gorilla/mux"
 	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -59,7 +59,7 @@ func (a *App) Initialize(db *sql.DB, config *configs.Config) {
 	}
 
 	// ハンドラーの初期化
-	authHandler := httphandlers.NewAuthHandler(a.UserUseCase, oauthConfig, config.JWTSecret, a.FrontendURL)
+	authHandler := httphandlers.NewAuthHandler(a.UserUseCase, oauthConfig, config.JWTSecret)
 	memoHandler := httphandlers.NewMemoHandler(a.MemoUseCase)
 	bookmarkHandler := httphandlers.NewBookmarkHandler(a.BookmarkUseCase)
 
@@ -89,7 +89,7 @@ func (a *App) initializeRoutes(authHandler *httphandlers.AuthHandler, memoHandle
 	authenticated.HandleFunc("/memos", memoHandler.ListMemos).Methods("GET")
 	authenticated.HandleFunc("/memos/{memoId}/archive", memoHandler.ArchiveMemo).Methods("PATCH")
 
-    // カテゴリ関連のルートも作る
+	// カテゴリ関連のルートも作る
 
 	// ブックマーク関連のルート
 	authenticated.HandleFunc("/bookmarks", bookmarkHandler.CreateBookmark).Methods("POST")

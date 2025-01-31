@@ -42,8 +42,6 @@ func GenerateJWT(userID string, secret string) (string, error) {
 
 func ValidateJWT(tokenStr, secret string) (*Claims, error) {
 	claims := &Claims{}
-	// ParseWithClaims：指定したトークン文字列をパースし、指定したクレームに格納する。
-	// パースとは、トークン文字列を構造化して、トークンの内容を取り出すこと。
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	})

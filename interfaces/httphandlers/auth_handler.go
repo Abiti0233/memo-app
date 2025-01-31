@@ -3,11 +3,10 @@ package httphandlers
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/url"
-	"time"
-	"log"
 	"errors"
+	"log"
+	"net/http"
+	"time"
 
 	userdomain "github.com/Abiti0233/memo-app/domains/user"
 	"github.com/Abiti0233/memo-app/usecases"
@@ -20,15 +19,13 @@ type AuthHandler struct {
 	userUseCase usecases.UserUseCase
 	oauthConfig *oauth2.Config
 	jwtSecret   string
-  frontendURL string
 }
 
-func NewAuthHandler(userUseCase usecases.UserUseCase, oauthConfig *oauth2.Config, jwtSecret string, frontendURL string) *AuthHandler {
+func NewAuthHandler(userUseCase usecases.UserUseCase, oauthConfig *oauth2.Config, jwtSecret string) *AuthHandler {
 	return &AuthHandler{
 		userUseCase: userUseCase,
 		oauthConfig: oauthConfig,
 		jwtSecret:   jwtSecret,
-    frontendURL : frontendURL,
 	}
 }
 
@@ -83,51 +80,46 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	log.Printf("ユーザー: %v\n", user)
 	if err != nil {
 		if errors.Is(err, usecases.ErrUserNotFound) {
-				log.Println("ユーザーが存在しません。新規登録を試みます。")
-				// 新規ユーザーとして登録
-				newUser := &userdomain.User{
-						ID:            userInfo.ID,
-						Name:          userInfo.Name,
-						Email:         userInfo.Email,
-						EmailVerified: userInfo.VerifiedEmail,
-						CreatedAt:     timeNow(),
-						UpdatedAt:     timeNow(),
-				}
-				log.Printf("新規ユーザー: %v\n", newUser)
-				if err := h.userUseCase.RegisterUser(newUser); err != nil {
-						http.Error(w, "ユーザーの登録に失敗しました。", http.StatusInternalServerError)
-						log.Printf("ユーザーの登録に失敗しました: %v\n", err)
-						return
-				}
-				user = newUser
-				log.Printf("新規ユーザーを登録しました: %+v\n", user)
-		} else {
-				http.Error(w, "ユーザーの取得に失敗しました。", http.StatusInternalServerError)
-				log.Printf("ユーザー情報の取得に失敗しました2: %v\n", err)
+			// 新規ユーザーとして登録
+			newUser := &userdomain.User{
+				ID:            userInfo.ID,
+				Name:          userInfo.Name,
+				Email:         userInfo.Email,
+				EmailVerified: userInfo.VerifiedEmail,
+				CreatedAt:     timeNow(),
+				UpdatedAt:     timeNow(),
+			}
+			if err := h.userUseCase.RegisterUser(newUser); err != nil {
+				http.Error(w, "ユーザーの登録に失敗しました。", http.StatusInternalServerError)
 				return
+			}
+			user = newUser
+		} else {
+			http.Error(w, "ユーザーの取得に失敗しました。", http.StatusInternalServerError)
+			return
 		}
-}
+	}
 	// JWTトークンの生成
 	tokenStr, err := utils.GenerateJWT(user.ID, h.jwtSecret)
 	if err != nil {
 		http.Error(w, "トークンの生成に失敗しました。", http.StatusInternalServerError)
 		return
 	}
-	// トークンをJSONで返却
 
-	// フロントエンドにリダイレクト
-	redirectURL, err := url.Parse(h.frontendURL + "/auth/callback")
-	if err != nil {
-		http.Error(w, "URLのパースに失敗しました。", http.StatusInternalServerError)
-		return
+	// Authorization ヘッダーにトークンを載せて返す（+JSONボディ）
+	w.Header().Set("Authorization", "Bearer "+tokenStr)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	// フロントエンドがパースしやすいよう、JSON形式でトークンを返す
+	type responseBody struct {
+		Token   string `json:"token"`
+		Message string `json:"message"`
 	}
-
-	// クエリパラメータとしてトークンを追加
-	query := redirectURL.Query()
-	query.Set("token", tokenStr)
-	redirectURL.RawQuery = query.Encode()
-
-	http.Redirect(w, r, redirectURL.String(), http.StatusSeeOther)
+	respBody := responseBody{
+		Token:   tokenStr,
+		Message: "認証に成功しました。Authorizationヘッダーにトークンを設定しています。",
+	}
+	json.NewEncoder(w).Encode(respBody)
 }
 
 func timeNow() time.Time {

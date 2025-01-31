@@ -5,10 +5,22 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"log"
+
 	"github.com/Abiti0233/memo-app/domains/memo"
+	"github.com/Abiti0233/memo-app/interfaces/middlewares/authmiddleware"
 	"github.com/Abiti0233/memo-app/usecases"
 	"github.com/gorilla/mux"
 )
+
+// writeJSONErrorはエラー時にJSON形式でレスポンスを返すためのヘルパー関数
+func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"error": message,
+	})
+}
 
 type MemoHandler struct {
 	useCase usecases.MemoUseCase
@@ -35,71 +47,75 @@ type UpdateMemoRequest struct {
 func (h *MemoHandler) CreateMemo(w http.ResponseWriter, r *http.Request) {
 	var req CreateMemoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "ペイロードに失敗", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "ペイロードのデコードに失敗しました")
 		return
 	}
 
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(authmiddleware.UserIDKey).(string)
 	if !ok || userID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "認証情報がありません（Unauthorized）")
 		return
 	}
 
-	memo := &memo.Memo{
+	m := &memo.Memo{
 		Title:      req.Title,
 		Content:    req.Content,
 		IsArchived: false,
 	}
 
-	err := h.useCase.CreateMemo(userID, memo)
+	err := h.useCase.CreateMemo(userID, m)
 	if err != nil {
-		http.Error(w, "メモの作成に失敗", http.StatusInternalServerError)
+		log.Printf("メモの作成に失敗: %v\n", err)
+		writeJSONError(w, http.StatusInternalServerError, "メモの作成に失敗しました")
 		return
 	}
 
-	// http.StatusCreatedは、HTTPステータスコード201を表す定数
-	// 新しくリソースが作成されているから201を返す
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
-	// json.NewEncoder(w).Encode(memo)は、memoをJSON形式にエンコードして、HTTPレスポンスに書き込む
-	json.NewEncoder(w).Encode(memo)
+	if err := json.NewEncoder(w).Encode(m); err != nil {
+		log.Printf("レスポンスのエンコードに失敗: %v\n", err)
+	}
 }
 
 // UpdateMemo はメモ更新のハンドラー
 func (h *MemoHandler) UpdateMemo(w http.ResponseWriter, r *http.Request) {
 	var req UpdateMemoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "リクエストが正しくない", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "リクエストのデコードに失敗しました")
 		return
 	}
 
 	vars := mux.Vars(r)
 	id := vars["memoId"]
 
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(authmiddleware.UserIDKey).(string)
 	if !ok || userID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "認証情報がありません（Unauthorized）")
 		return
 	}
 
-	memo := &memo.Memo{
+	m := &memo.Memo{
 		ID:         id,
 		Title:      req.Title,
 		Content:    req.Content,
 		IsArchived: req.IsArchived,
 	}
 
-	err := h.useCase.UpdateMemo(userID, memo)
+	err := h.useCase.UpdateMemo(userID, m)
 	if err != nil {
 		if err == usecases.ErrMemoNotFound {
-			http.Error(w, "Memo not found", http.StatusNotFound)
+			writeJSONError(w, http.StatusNotFound, "メモが見つかりません")
 			return
 		}
-		http.Error(w, "メモ作成失敗", http.StatusInternalServerError)
+		log.Printf("メモ更新失敗: %v\n", err)
+		writeJSONError(w, http.StatusInternalServerError, "メモ更新に失敗しました")
 		return
 	}
-	// http.StatusOKは、HTTPステータスコード200を表す定数
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(memo)
+	if err := json.NewEncoder(w).Encode(m); err != nil {
+	}
 }
 
 // DeleteMemo はメモ削除のハンドラー
@@ -107,23 +123,23 @@ func (h *MemoHandler) DeleteMemo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["memoId"]
 
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(authmiddleware.UserIDKey).(string)
 	if !ok || userID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "認証情報がありません（Unauthorized）")
 		return
 	}
 
 	err := h.useCase.DeleteMemo(userID, id)
 	if err != nil {
 		if err == usecases.ErrMemoNotFound {
-			http.Error(w, "メモが見つからない", http.StatusNotFound)
+			writeJSONError(w, http.StatusNotFound, "メモが見つかりません")
 			return
 		}
-		http.Error(w, "メモ削除に失敗", http.StatusInternalServerError)
+		log.Printf("メモ削除失敗: %v\n", err)
+		writeJSONError(w, http.StatusInternalServerError, "メモ削除に失敗しました")
 		return
 	}
 
-	// http.StatusNoContentは、HTTPステータスコード204を表す定数
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -132,42 +148,53 @@ func (h *MemoHandler) GetMemo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["memoId"]
 
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(authmiddleware.UserIDKey).(string)
 	if !ok || userID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "認証情報がありません（Unauthorized）")
 		return
 	}
 
-	memo, err := h.useCase.GetMemoByID(userID, id)
+	m, err := h.useCase.GetMemoByID(userID, id)
 	if err != nil {
-		http.Error(w, "メモ取得失敗", http.StatusInternalServerError)
+		log.Printf("メモ取得失敗: %v\n", err)
+		writeJSONError(w, http.StatusInternalServerError, "メモ取得に失敗しました")
 		return
 	}
-	if memo == nil {
-		http.Error(w, "メモが見つからない", http.StatusNotFound)
+	if m == nil {
+		writeJSONError(w, http.StatusNotFound, "メモが見つかりません")
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(memo)
+	if err := json.NewEncoder(w).Encode(m); err != nil {
+		log.Printf("レスポンスのエンコードに失敗: %v\n", err)
+	}
 }
 
 // ListMemos はメモ一覧取得のハンドラー
 func (h *MemoHandler) ListMemos(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(authmiddleware.UserIDKey).(string)
+	log.Printf("userIDKey: %v\n", userID)
+	log.Printf("ok: %v\n", ok)
 	if !ok || userID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		log.Printf("認証情報がありません（Unauthorized）")
+		writeJSONError(w, http.StatusUnauthorized, "認証情報がありません（Unauthorized）")
 		return
 	}
 
 	memos, err := h.useCase.ListMemos(userID)
 	if err != nil {
-		http.Error(w, "メモ一覧取得失敗", http.StatusInternalServerError)
+		log.Printf("メモ一覧取得失敗: %v\n", err)
+		writeJSONError(w, http.StatusInternalServerError, "メモ一覧の取得に失敗しました")
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(memos)
+	if err := json.NewEncoder(w).Encode(memos); err != nil {
+		log.Printf("レスポンスのエンコードに失敗: %v\n", err)
+	}
 }
 
 // ArchiveMemo はメモのアーカイブ化/アーカイブ解除のハンドラー
@@ -175,9 +202,9 @@ func (h *MemoHandler) ArchiveMemo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["memoId"]
 
-	userID, ok := r.Context().Value("userID").(string)
+	userID, ok := r.Context().Value(authmiddleware.UserIDKey).(string)
 	if !ok || userID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "認証情報がありません（Unauthorized）")
 		return
 	}
 
@@ -186,19 +213,21 @@ func (h *MemoHandler) ArchiveMemo(w http.ResponseWriter, r *http.Request) {
 		IsArchived bool `json:"isArchived"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "リクエストのデコードに失敗しました")
 		return
 	}
 
 	err := h.useCase.ArchiveMemo(userID, id, req.IsArchived)
 	if err != nil {
 		if err == usecases.ErrMemoNotFound {
-			http.Error(w, "メモが見つからない", http.StatusNotFound)
+			writeJSONError(w, http.StatusNotFound, "メモが見つかりません")
 			return
 		}
-		http.Error(w, "アーカイブに失敗", http.StatusInternalServerError)
+		log.Printf("アーカイブ失敗: %v\n", err)
+		writeJSONError(w, http.StatusInternalServerError, "アーカイブに失敗しました")
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 }

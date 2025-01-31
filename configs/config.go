@@ -36,7 +36,7 @@ func LoadConfig() *Config {
 		ServerPort:        getEnv("SERVER_PORT", "8081"),
 		OAuthClientID:     getEnv("OAUTH_CLIENT_ID", ""),
 		OAuthClientSecret: getEnv("OAUTH_CLIENT_SECRET", ""),
-		OAuthRedirectURL:  getEnv("OAUTH_REDIRECT_URL", "http://localhost:8081/api/v1/auth/callback"),
+		OAuthRedirectURL:  getEnv("OAUTH_REDIRECT_URL", "http://localhost:3000/auth/callback"),
 		JWTSecret:         getEnv("JWT_SECRET", ""),
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:3000"),
 	}

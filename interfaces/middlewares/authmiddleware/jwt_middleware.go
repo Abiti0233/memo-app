@@ -15,7 +15,7 @@ import (
 type key string
 
 const (
-	userIDKey key = "userID"
+	UserIDKey key = "userID"
 )
 
 // JWTAuthentication はJWTトークンを検証するためのミドルウェア
@@ -51,7 +51,7 @@ func JWTAuthentication(config *configs.Config) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
