@@ -110,6 +110,9 @@ func (r *memoRepository) ListByUser(userID string) ([]memo.Memo, error) {
 		}
 		memos = append(memos, memo)
 	}
+	if memos == nil {
+		memos = []memo.Memo{}
+	}
 	return memos, nil
 }
 
